@@ -41,7 +41,7 @@ def main():
         # If has not been processed already
         if id > last:
             # Hashtag
-            tweet_metadata = [os.getenv("TWITTER_HASHTAG"), ' ']
+            tweet_metadata = ['#鈴木このみ', ' ']
 
             # Format timestamp
             timestamp = datetime.datetime.fromtimestamp(post['node']['taken_at_timestamp'])
