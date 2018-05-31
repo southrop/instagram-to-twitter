@@ -121,8 +121,6 @@ def main():
             # Update highest ID if higher
             if id > highest:
                 highest = id
-        else:
-            break
 
     if (highest > last):
         last = highest
