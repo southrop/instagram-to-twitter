@@ -1,4 +1,13 @@
+# Workspace
 .vscode/
+
+# Virtualenv
 venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Project-specific files
 .env
 last
