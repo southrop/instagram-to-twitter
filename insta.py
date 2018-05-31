@@ -23,7 +23,7 @@ def main():
     load_dotenv()
 
     # Read in last parsed post ID
-    last_str = codecs.open(os.path.dirname(os.path.abspath(__file__)) + 'last', 'r', 'utf-8').read()
+    last_str = codecs.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'last'), 'r', 'utf-8').read()
     try:
         last = int(last_str)
     except ValueError:
@@ -92,7 +92,7 @@ def main():
 
     if (highest > last):
         last = highest
-        file = codecs.open(os.path.dirname(os.path.abspath(__file__)) + 'last', 'w', 'utf-8')
+        file = codecs.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'last'), 'w', 'utf-8')
         file.write(str(last))
 
 if __name__ == "__main__":
