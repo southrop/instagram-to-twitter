@@ -1,12 +1,21 @@
-import codecs, datetime, json, math, os, requests, twitter
+import datetime, json, math, os, requests, twitter
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+from enum import Enum
 
-prof_url = 'https://www.instagram.com/{}/'
-story_url = 'https://i.instagram.com/api/v1/feed/user/{}/reel_media/'
-post_url = 'https://www.instagram.com/p/{}/'
 LAST_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'last')
+PROFILE_URL = 'https://www.instagram.com/{}/'
+STORY_URL = 'https://i.instagram.com/api/v1/feed/user/{}/reel_media/'
+POST_URL = 'https://www.instagram.com/p/{}/'
 
+class PageType(Enum):
+    PROFILE = 'ProfilePage'
+    POST = 'PostPage'
+
+class MediaType(Enum):
+    IMAGE = 'GraphImage'
+    VIDEO = 'GraphVideo'
+    GALLERY = 'GraphSidecar'
 
 def read_last():
     try:
@@ -20,11 +29,23 @@ def read_last():
     except ValueError:
         return 0
 
-def fetch_data(url):
+def download_json_data(url):
     source = BeautifulSoup(requests.get(url).text, 'html.parser')
     script = source.find('script', text=lambda t: t.startswith('window._sharedData'))
     json_data = script.text.split(' = ', 1)[1].rstrip(';')
     return json.loads(json_data)
+
+def get_data(url, type=PageType.POST, media_type=MediaType.IMAGE):
+    json_data = download_json_data(url)
+    if type == PageType.PROFILE:
+        return json_data['entry_data']['ProfilePage'][0]['graphql']['user']['edge_owner_to_timeline_media']['edges']
+    else:
+        if media_type == MediaType.GALLERY:
+            return json_data['entry_data']['PostPage'][0]['graphql']['shortcode_media']['edge_sidecar_to_children']['edges']
+        elif media_type == MediaType.VIDEO:
+            return json_data['entry_data']['PostPage'][0]['graphql']['shortcode_media']['video_url']
+        else:
+            return json_data['entry_data']['PostPage'][0]['graphql']['shortcode_media']['display_url']
 
 def check_length(tweet_str):
     if twitter.twitter_utils.calc_expected_status_length(tweet_str) > 280:
@@ -41,10 +62,10 @@ def main():
     highest = last
 
     # Get user data
-    post_data = fetch_data(prof_url.format(os.getenv("INSTAGRAM_USERNAME")))['entry_data']['ProfilePage'][0]['graphql']['user']['edge_owner_to_timeline_media']['edges']
-
+    profile_data = get_data(PROFILE_URL.format(os.getenv("INSTAGRAM_USERNAME")), PageType.PROFILE)
+    
     # Loop through data
-    for post in reversed(post_data):
+    for post in reversed(profile_data):
         id = int(post['node']['id'])
 
         # If has not been processed already
@@ -57,17 +78,17 @@ def main():
             tweet_metadata += [timestamp.strftime('%Y-%m-%d %H:%M'), '\n']
 
             # Format post URL
-            url = post_url.format(post['node']['shortcode'])
-            tweet_metadata += [url, '\n\n']
+            url = POST_URL.format(post['node']['shortcode'])
+            tweet_metadata.append(url)
 
             # Caption
             caption = post['node']['edge_media_to_caption']['edges'][0]['node']['text']
-            tweet_content = [caption]
+            tweet_content = ['\n\n', caption]
 
             images = []
             # If contains multiple images, get all images
-            if post['node']['__typename'] == 'GraphSidecar':
-                gallery_data = fetch_data(url)['entry_data']['PostPage'][0]['graphql']['shortcode_media']['edge_sidecar_to_children']['edges']
+            if post['node']['__typename'] == MediaType.GALLERY.value:
+                gallery_data = get_data(url, media_type=MediaType.GALLERY)
                 for image in gallery_data:
                     images.append(image['node']['display_url'])
             else:
@@ -75,11 +96,13 @@ def main():
 
             tweet_str = check_length(''.join(tweet_metadata + tweet_content))
 
-            # Authenticate with Twitter
-            api = twitter.Api(consumer_key=os.getenv("CONSUMER_KEY"),
-                            consumer_secret=os.getenv("CONSUMER_SECRET"),
-                            access_token_key=os.getenv("ACCESS_TOKEN_KEY"),
-                            access_token_secret=os.getenv("ACCESS_TOKEN_SECRET"))
+            api = None
+            # If production, authenticate with Twitter
+            if os.getenv('ENV', 'dev') == 'production':
+                api = twitter.Api(consumer_key=os.getenv("CONSUMER_KEY"),
+                                consumer_secret=os.getenv("CONSUMER_SECRET"),
+                                access_token_key=os.getenv("ACCESS_TOKEN_KEY"),
+                                access_token_secret=os.getenv("ACCESS_TOKEN_SECRET"))
 
             # Check number of tweets required
             tweets_required = math.ceil(len(images) / 4)
@@ -91,7 +114,9 @@ def main():
                 if (prev_status > 0):
                     tweet_str = check_length(''.join(tweet_metadata))
                     replyto = prev_status
-                prev_status = api.PostUpdate(tweet_str, tweet_images, in_reply_to_status_id=prev_status).id
+
+                if os.getenv('ENV', 'dev') == 'production':
+                    prev_status = api.PostUpdate(tweet_str, tweet_images, in_reply_to_status_id=prev_status).id
 
             # Update highest ID if higher
             if id > highest:
