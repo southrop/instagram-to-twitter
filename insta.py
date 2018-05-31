@@ -5,17 +5,18 @@ from dotenv import load_dotenv
 prof_url = 'https://www.instagram.com/{}/'
 story_url = 'https://i.instagram.com/api/v1/feed/user/{}/reel_media/'
 post_url = 'https://www.instagram.com/p/{}/'
+LAST_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'last')
+
 
 def read_last():
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'last')
-
     try:
-        last_file = open(path, 'r', encoding='utf-8')
+        last_file = open(LAST_FILE_PATH, 'r', encoding='utf-8')
     except FileNotFoundError:
-        last_file = open(path, 'w', encoding='utf-8')
-
+        last_file = open(LAST_FILE_PATH, 'w+', encoding='utf-8')
+    last_str = last_file.read()
+    last_file.close()
     try:
-        return int(last_file.read())
+        return int(last_str)
     except ValueError:
         return 0
 
@@ -100,8 +101,9 @@ def main():
 
     if (highest > last):
         last = highest
-        file = codecs.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'last'), 'w', 'utf-8')
-        file.write(str(last))
+        last_file = open(LAST_FILE_PATH, 'w', 'utf-8')
+        last_file.write(str(last))
+        last_file.close()
 
 if __name__ == "__main__":
     main()
