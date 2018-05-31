@@ -6,6 +6,19 @@ prof_url = 'https://www.instagram.com/{}/'
 story_url = 'https://i.instagram.com/api/v1/feed/user/{}/reel_media/'
 post_url = 'https://www.instagram.com/p/{}/'
 
+def read_last():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'last')
+
+    try:
+        last_file = open(path, 'r', encoding='utf-8')
+    except FileNotFoundError:
+        last_file = open(path, 'w', encoding='utf-8')
+
+    try:
+        return int(last_file.read())
+    except ValueError:
+        return 0
+
 def fetch_data(url):
     source = BeautifulSoup(requests.get(url).text, 'html.parser')
     script = source.find('script', text=lambda t: t.startswith('window._sharedData'))
@@ -23,12 +36,7 @@ def main():
     load_dotenv()
 
     # Read in last parsed post ID
-    last_str = codecs.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'last'), 'r', 'utf-8').read()
-    try:
-        last = int(last_str)
-    except ValueError:
-        last = 0
-
+    last = read_last()
     highest = last
 
     # Get user data
