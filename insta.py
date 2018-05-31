@@ -1,4 +1,4 @@
-import datetime, json, math, os, requests, twitter
+import datetime, json, math, os, requests, twitter, src.twutils as twutils
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from enum import Enum
@@ -47,12 +47,6 @@ def get_data(url, type=PageType.POST, media_type=MediaType.IMAGE):
         else:
             return json_data['entry_data']['PostPage'][0]['graphql']['shortcode_media']['display_url']
 
-def check_length(tweet_str):
-    if twitter.twitter_utils.calc_expected_status_length(tweet_str) > 280:
-        return tweet_str[:278] + '…'
-    else:
-        return tweet_str
-
 def main():
     # Load .env file variables
     load_dotenv()
@@ -64,6 +58,7 @@ def main():
     # Get user data
     profile_data = get_data(PROFILE_URL.format(os.getenv("INSTAGRAM_USERNAME")), PageType.PROFILE)
     
+    output_file = open('result', 'w', encoding='utf-8')
     # Loop through data
     for post in reversed(profile_data):
         id = int(post['node']['id'])
@@ -86,15 +81,53 @@ def main():
             tweet_content = ['\n\n', caption]
 
             images = []
-            # If contains multiple images, get all images
+            media = [] # List of tuples of (type, url)
+            # If gallery, get all media
             if post['node']['__typename'] == MediaType.GALLERY.value:
+                list_idx = 0
+                list_type = None
+                media_list = []
                 gallery_data = get_data(url, media_type=MediaType.GALLERY)
-                for image in gallery_data:
-                    images.append(image['node']['display_url'])
+                for gallery_item in gallery_data:
+                    if gallery_item['node']['__typename'] == MediaType.VIDEO.value:
+                        if list_type is None:
+                            media.append([gallery_item['node']['video_url']])
+                        elif list_type is MediaType.IMAGE:
+                            # Image list in progress
+                            # Commit current list and create new list with video
+                            media.append(media_list)
+                            media.append([gallery_item['node']['video_url']])
+                            list_type = None
+                            media_list = []
+                    else:
+                        if list_type is None:
+                            # No list in progress
+                            list_type = MediaType.IMAGE
+                            media_list.append(gallery_item['node']['display_url'])
+                        elif list_type is MediaType.IMAGE:
+                            # Image list in progress
+                            if len(media_list) > 4:
+                                # List is somehow overfull
+                                # Tweets only allow 4 images, so extra ones need to be split
+                                while len(media_list) >= 4:
+                                    media.append(media_list[:4])
+                                    media_list = media_list[4:]
+                                media_list.append(gallery_item['node']['display_url'])
+                            elif len(media_list) == 4:
+                                # List full
+                                # Commit current list and create new list
+                                media.append(media_list)
+                                media_list = [gallery_item['node']['display_url']]
+                            else:
+                                # List not full yet
+                                media_list.append(gallery_item['node']['display_url'])
+                # Commit unfinished list if exists
+                if list_type is MediaType.IMAGE and len(media_list) > 0:
+                    media.append(media_list)
+            elif post['node']['__typename'] == MediaType.VIDEO.value:
+                media.append([get_data(url, media_type=MediaType.VIDEO)])
             else:
-                images.append(post['node']['display_url'])
-
-            tweet_str = check_length(''.join(tweet_metadata + tweet_content))
+                media.append([post['node']['display_url']])
 
             api = None
             # If production, authenticate with Twitter
@@ -104,19 +137,21 @@ def main():
                                 access_token_key=os.getenv("ACCESS_TOKEN_KEY"),
                                 access_token_secret=os.getenv("ACCESS_TOKEN_SECRET"))
 
-            # Check number of tweets required
-            tweets_required = math.ceil(len(images) / 4)
+            tweet_str = twutils.truncate_status(''.join(tweet_metadata + tweet_content))
+
             prev_status = 0
-            for i in range(tweets_required):
-                start = i * 4
-                tweet_images = images[start:start+4]
+            for tweet_media in media:
                 replyto = None
                 if (prev_status > 0):
-                    tweet_str = check_length(''.join(tweet_metadata))
+                    tweet_str = twutils.truncate_status(''.join(tweet_metadata))
                     replyto = prev_status
 
                 if os.getenv('ENV', 'dev') == 'production':
-                    prev_status = api.PostUpdate(tweet_str, tweet_images, in_reply_to_status_id=prev_status).id
+                    prev_status = api.PostUpdate(tweet_str, tweet_media, in_reply_to_status_id=prev_status).id
+                else:
+                    prev_status += 1
+                    output_file.write(tweet_str + '\n\n')
+                    output_file.write('\n'.join(tweet_media) + '\n\n')
 
             # Update highest ID if higher
             if id > highest:
