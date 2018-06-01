@@ -159,7 +159,7 @@ def main():
 
     if (highest > last):
         last = highest
-        last_file = open(LAST_FILE_PATH, 'w', 'utf-8')
+        last_file = open(LAST_FILE_PATH, 'w', encoding='utf-8')
         last_file.write(str(last))
         last_file.close()
 
