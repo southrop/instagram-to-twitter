@@ -11,3 +11,4 @@ __pycache__/
 # Project-specific files
 .env
 last
+result
