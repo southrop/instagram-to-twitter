@@ -58,7 +58,6 @@ def main():
     # Get user data
     profile_data = get_data(PROFILE_URL.format(os.getenv("INSTAGRAM_USERNAME")), PageType.PROFILE)
     
-    output_file = open('result', 'w', encoding='utf-8')
     # Loop through data
     for post in reversed(profile_data):
         id = int(post['node']['id'])
@@ -136,6 +135,8 @@ def main():
                                 consumer_secret=os.getenv("CONSUMER_SECRET"),
                                 access_token_key=os.getenv("ACCESS_TOKEN_KEY"),
                                 access_token_secret=os.getenv("ACCESS_TOKEN_SECRET"))
+            else:
+                api = open('result', 'w', encoding='utf-8')
 
             tweet_str = twutils.truncate_status(''.join(tweet_metadata + tweet_content))
 
@@ -150,8 +151,8 @@ def main():
                     prev_status = api.PostUpdate(tweet_str, tweet_media, in_reply_to_status_id=prev_status).id
                 else:
                     prev_status += 1
-                    output_file.write(tweet_str + '\n\n')
-                    output_file.write('\n'.join(tweet_media) + '\n\n')
+                    api.write(tweet_str + '\n\n')
+                    api.write('\n'.join(tweet_media) + '\n\n')
 
             # Update highest ID if higher
             if id > highest:
