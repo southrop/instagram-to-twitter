@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import datetime, json, math, os, requests, twitter, src.twutils as twutils
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv

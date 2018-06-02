@@ -1,4 +1,4 @@
-# encoding: utf-8
+# coding: utf-8
 
 import re
 import twitter.twitter_utils as twitter_utils
