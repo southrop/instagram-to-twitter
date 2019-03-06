@@ -9,6 +9,9 @@ LAST_FILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'last'
 PROFILE_URL = 'https://www.instagram.com/{}/'
 STORY_URL = 'https://i.instagram.com/api/v1/feed/user/{}/reel_media/'
 POST_URL = 'https://www.instagram.com/p/{}/'
+HEADERS = {
+    'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36'
+}
 
 class PageType(Enum):
     PROFILE = 'ProfilePage'
@@ -32,7 +35,7 @@ def read_last():
         return 0
 
 def download_json_data(url):
-    source = BeautifulSoup(requests.get(url).text, 'html.parser')
+    source = BeautifulSoup(requests.get(url, headers=HEADERS).text, 'html.parser')
     script = source.find('script', text=lambda t: t.startswith('window._sharedData'))
     json_data = script.text.split(' = ', 1)[1].rstrip(';')
     return json.loads(json_data)
@@ -167,4 +170,11 @@ def main():
         last_file.close()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except requests.exceptions.ConnectionError:
+        print("Connection error occurred. Terminating.")
+    except AttributeError:
+        print("Attribute error occured. Terminating.")
+    except:
+        print("Unknown error occurred. Terminating.")
