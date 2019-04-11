@@ -1,9 +1,6 @@
 # Workspace
 .vscode/
 
-# Virtualenv
-venv/
-
 # Python
 __pycache__/
 *.py[cod]
