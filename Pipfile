@@ -9,6 +9,7 @@ verify_ssl = true
 python-twitter = "*"
 python-dotenv = "*"
 instagram-private-api = {git = "https://git@github.com/ping/instagram_private_api.git",ref = "1.6.0"}
+pytz = "*"
 
 [requires]
 python_version = "3.6"
