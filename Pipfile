@@ -13,3 +13,6 @@ pytz = "*"
 
 [requires]
 python_version = "3.6"
+
+[scripts]
+insta = "python insta.py"
